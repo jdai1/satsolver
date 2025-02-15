@@ -1,3 +1,4 @@
 /input
 /unsolved
-*.log
+/log
+
