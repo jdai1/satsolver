@@ -1,11 +1,11 @@
-from sat_instance import SATInstance
+from .sat_instance import SATInstance1
 from typing import Set, List, Tuple
 
 DEBUG = False
 
 
 def dpll_solve(
-    sat_instance: SATInstance, level: int = 0
+    sat_instance: SATInstance1, level: int = 0
 ) -> Tuple[bool, dict[int, bool]]:
     # unit propagation
     while True:

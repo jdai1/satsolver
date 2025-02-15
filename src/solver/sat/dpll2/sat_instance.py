@@ -1,7 +1,7 @@
 from typing import Set, List, Dict
 
 
-class SATInstance:
+class SATInstance2:
     def __init__(self, num_vars: int, num_clauses: int):
         self.num_vars = num_vars
         self.num_clauses = num_clauses
@@ -51,3 +51,18 @@ class SATInstance:
         result.append(f"unit_clauses: {self.unit_clauses}")
         result.append(f"literal2clause: {self.literal2clause}")
         return "\n".join(result)
+
+    def value(self, literal: int) -> int:
+        var = abs(literal)
+        if var not in self.assignments:
+            return 0
+        value = self.assignments[abs(literal)]
+        if value:
+            return 1 if literal > 0 else -1
+        return -1 if literal > 0 else 1
+
+    def check(self) -> bool:
+        for _, clause in self.id2clause.items():
+            if not any(self.value(l) == 1 for l in clause):
+                return False
+        return True

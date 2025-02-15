@@ -1,10 +1,22 @@
 from typing import Set
-from sat_instance import SATInstance
+from .dpll1.sat_instance import SATInstance1
+from .dpll2.sat_instance import SATInstance2
+from .dpll3.sat_instance import SATInstance3
 
 class DimacsParser:
     @staticmethod
-    def parse_cnf_file(file_name: str) -> SATInstance:
+    def parse_cnf_file(file_name: str, version: int):
         sat_instance = None
+
+        sat_instance_class = None
+        if version == 1:
+            sat_instance_class = SATInstance1
+        elif version == 2:
+            sat_instance_class = SATInstance2
+        elif version == 3:
+            sat_instance_class = SATInstance3
+        else:
+            raise Exception(f"bad version: {version}")
         
         try:
             with open(file_name, 'r') as file:
@@ -29,7 +41,7 @@ class DimacsParser:
                 
                 num_vars = int(problem_line[2])
                 num_clauses = int(problem_line[3])
-                sat_instance = SATInstance(num_vars, num_clauses)
+                sat_instance = sat_instance_class(num_vars, num_clauses)
                 
                 # Parse clauses
                 clause: Set[int] = set()

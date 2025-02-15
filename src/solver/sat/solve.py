@@ -3,10 +3,11 @@
 import json
 import sys
 from pathlib import Path
-from dimacs_parser import DimacsParser
-from clock import Clock
-from dpll_solver import dpll_solve
-from dpll_solver2 import dpll_solve2
+from .dimacs_parser import DimacsParser
+from .clock import Clock
+from .dpll1.dpll_solver import dpll_solve
+from .dpll2.dpll_solver2 import dpll_solve2
+from .dpll3.dpll_solver3 import dpll_solve3
 
 
 def main():
@@ -23,9 +24,9 @@ def main():
     watch.start()
 
     try:
-        instance = DimacsParser.parse_cnf_file(input_file)
+        instance = DimacsParser.parse_cnf_file(input_file, version=2)
         # print(instance) 
-
+        
         watch.stop()
         print(
             f'{{"Instance": "{filename}", "Time": {watch.get_time():.2f}, "Result": "--"}}'
@@ -40,7 +41,7 @@ def main():
 
     watch = Clock()
     watch.start()
-    sat, assignments = dpll_solve2(sat_instance=instance)
+    sat, assignments = dpll_solve2(sat_instance=instance) # type: ignore
     watch.stop()
 
     res = {
@@ -55,6 +56,10 @@ def main():
             assignment_list.append(str(a))
         res["Solution"] = " ".join(assignment_list)
     print(json.dumps(res))
+
+    # print("Result:", "SAT" if sat else "UNSAT")
+    # if sat and not instance.check(): # type: ignore
+    #     print("Incorrect assignment")
 
 
 if __name__ == "__main__":
