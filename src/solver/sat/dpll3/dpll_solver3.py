@@ -1,14 +1,18 @@
-from .sat_instance import SATInstance3
+from .sat_instance import SATInstance3, debug_print
 from typing import Set, List, Tuple
 
 DEBUG = False
 
 
-def dpll_solve3(
-    sat_instance: SATInstance3, level: int = 0
-) -> Tuple[bool, dict[int, bool]]:
+def dpll_solve3(sat_instance: SATInstance3) -> Tuple[bool, dict[int, bool]]:
+    sat_instance.pure_literal_eliminate()
+    sat_instance.setup()
+    return solve(sat_instance)
+
+
+def solve(sat_instance: SATInstance3, level: int = 0) -> Tuple[bool, dict[int, bool]]:
     # unit propagation
-    conflict = unit_propagate(sat_instance, level)
+    conflict = sat_instance.unit_propagate(level)
     if conflict:
         return False, {}
 
@@ -18,83 +22,17 @@ def dpll_solve3(
 
     # splitting
     # random search heuristic
-    literal_to_split_on = dlcs(sat_instance)
+    literal_to_split_on = sat_instance.dlcs()
     sat_instance.assign(literal_to_split_on, level)
-    
-    branch_a, assignments = dpll_solve3(sat_instance, level + 1)
+
+    branch_a, assignments = solve(sat_instance, level + 1)
     if branch_a:
         return True, assignments
 
     sat_instance.unassign(literal_to_split_on, level)
     sat_instance.assign(-literal_to_split_on, level)
-    branch_b, assignments = dpll_solve3(sat_instance, level + 1)
+    branch_b, assignments = solve(sat_instance, level + 1)
     return branch_b, assignments
-
-
-def has_unit_clause(sat_instance: SATInstance3) -> int:
-    if len(sat_instance.unit_literals) == 0:
-        return 0
-    unit_clause_id = next(iter(sat_instance.unit_literals))
-    clause = sat_instance.id2clause[unit_clause_id]
-    assert len(clause) == 1
-    return next(iter(clause))
-
-
-def unit_propagate(sat_instance: SATInstance3, level: int) -> bool:
-    debug_print(f"Unit literals: {sat_instance.unit_literals}", level)
-    while sat_instance.unit_literals:
-        
-        unit_literal = sat_instance.unit_literals.pop()
-        debug_print(f"Running unit propagation on {unit_literal}", level)
-
-        # Assigns unit_literal to true, checks for conflicts, updates watched2literal and literal2watched
-        conflict = sat_instance.assign(unit_literal, level)
-
-        if conflict:
-            debug_print("Conflict found", level)
-            return True
-    return False
-
-        
-# returns the literal used for dlcs
-def dlcs(sat_instance: SATInstance3) -> int:
-    maxCount = 0
-    literal = 0
-    for v in sat_instance.vars:
-        if v in sat_instance.assignments:
-            continue
-        pos_count = 0
-        neg_count = 0
-
-        if v in sat_instance.literal2watched:
-            for cid in sat_instance.literal2watched[v]:
-                fl, sl = sat_instance.watched2literal[cid]
-                fl_value, sl_value = sat_instance.value(fl), sat_instance.value(sl)
-                if fl_value != 1 and sl_value != 1:
-                    pos_count += 1
-        if -v in sat_instance.literal2watched:
-            for cid in sat_instance.literal2watched[-v]:
-                fl, sl = sat_instance.watched2literal[cid]
-                fl_value, sl_value = sat_instance.value(fl), sat_instance.value(sl)
-                if fl_value != 1 and sl_value != 1:
-                    neg_count += 1
-        if pos_count + neg_count >= maxCount:
-            literal = v if pos_count > neg_count else -v
-            maxCount = pos_count + neg_count
-    return literal
-        
-def get_random_literal(sat_instance: SATInstance3) -> int:
-    for v in sat_instance.vars:
-        if v not in sat_instance.assignments:
-            return v
-    assert False
-
-
-def debug_print(msg: str, level: int = 0) -> None:
-    if DEBUG:
-        space = level * "--"
-        space += " " if level != 0 else ""
-        print(f"{space}{msg}")
 
 
 """

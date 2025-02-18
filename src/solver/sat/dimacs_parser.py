@@ -9,9 +9,7 @@ class DimacsParser:
         sat_instance = None
 
         sat_instance_class = None
-        if version == 1:
-            sat_instance_class = SATInstance1
-        elif version == 2:
+        if version == 2:
             sat_instance_class = SATInstance2
         elif version == 3:
             sat_instance_class = SATInstance3

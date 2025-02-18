@@ -1,33 +1,29 @@
-import random
-from .sat_instance import SATInstance2
+from .sat_instance import SATInstance2, debug_print
 from typing import Set, List, Tuple
-
-DEBUG = False
-
 
 def dpll_solve2(
     sat_instance: SATInstance2, level: int = 0
 ) -> Tuple[bool, dict[int, bool]]:
     # unit propagation
     while True:
-        l = has_unit_clause(sat_instance)
+        l = sat_instance.has_unit_clause()
         if not l:  # l = 0
             break
         debug_print(f"Running unit propagation on {l}", level)
         sat_instance.assign(l)  # assign l to true
-        empty_clause_found = unit_propagate(l, sat_instance, level)  # NOTE
+        empty_clause_found = sat_instance.unit_propagate(l, level)  # NOTE
         if empty_clause_found:
             debug_print("Empty clause found during unit prop", level)
             return False, {}
 
     # pure literal elimination
     while True:
-        l = has_pure_literal(sat_instance)
+        l = sat_instance.has_pure_literal()
         if not l:  # l = 0
             break
         debug_print(f"Running literal elimination on {l}", level)
         sat_instance.assign(l)  # assign l to true
-        literal_eliminate(l, sat_instance, level)
+        sat_instance.literal_eliminate(l, level)
 
     if len(sat_instance.id2clause) == 0:
         debug_print("Clauses list is empty (SAT)", level)
@@ -35,28 +31,11 @@ def dpll_solve2(
 
     # splitting
     # random search heuristic
-    dlcs_out = dlcs(sat_instance)
+    dlcs_out = sat_instance.randomized_dlcs()
     debug_print(f"Recurring with {dlcs_out} set to True", level)
 
-    old_assignments = sat_instance.assignments
-    new_assignments = {k: v for k, v in sat_instance.assignments.items()}
-    sat_instance.assignments = new_assignments
+    old_assignments, old_literal2clause, old_unit_clauses, old_id2clause = sat_instance.copy()
     sat_instance.assign(dlcs_out)
-
-    old_literal2clause = sat_instance.literal2clause
-    new_literal2clause = {
-        literal: set(cids) for literal, cids in sat_instance.literal2clause.items()
-    }
-    sat_instance.literal2clause = new_literal2clause
-
-    old_unit_clauses = sat_instance.unit_clauses
-    new_unit_clauses = set(sat_instance.unit_clauses)
-    sat_instance.unit_clauses = new_unit_clauses
-
-    old_id2clause = sat_instance.id2clause
-    new_id2clause = {cid: set(c) for cid, c in sat_instance.id2clause.items()}
-    sat_instance.id2clause = new_id2clause
-
     sat_instance.add_clause({dlcs_out})
 
     branch_a, assignments = dpll_solve2(sat_instance, level + 1)
@@ -64,11 +43,11 @@ def dpll_solve2(
         return True, assignments
 
     sat_instance.assignments = old_assignments
-    sat_instance.assign(-dlcs_out)
-
     sat_instance.unit_clauses = old_unit_clauses
     sat_instance.literal2clause = old_literal2clause
     sat_instance.id2clause = old_id2clause
+    
+    sat_instance.assign(-dlcs_out)
     sat_instance.add_clause({-dlcs_out})
 
     debug_print(f"Recurring with {dlcs_out} set to False", level)
@@ -77,102 +56,6 @@ def dpll_solve2(
     if branch_b:
         return branch_b, assignments
     return branch_b, {}
-
-
-def has_unit_clause(sat_instance: SATInstance2) -> int:
-    if len(sat_instance.unit_clauses) == 0:
-        return 0
-    unit_clause_id = next(iter(sat_instance.unit_clauses))
-    clause = sat_instance.id2clause[unit_clause_id]
-    assert len(clause) == 1
-    return next(iter(clause))
-
-
-def unit_propagate(literal: int, sat_instance: SATInstance2, level: int) -> bool:
-    unit_clauses, literal2clause, id2clause = sat_instance.unit_clauses, sat_instance.literal2clause, sat_instance.id2clause
-    
-    # delete all clauses that contain the target literal
-    for cid in literal2clause[literal]:
-        if cid in unit_clauses: # update unit_clauses
-            unit_clauses.remove(cid)
-        for l in id2clause[cid]: # udpate literal2clause
-            if l != literal:
-                literal2clause[l].remove(cid)
-        debug_print(f"Removing {cid} from id2clause", level)
-        del id2clause[cid]  # remove clause
-
-    debug_print(f"Removing {literal} from literal2clause", level)
-
-    # nuke literal entry from literal2clause
-    del literal2clause[literal]
-
-    # remove the literal from any clauses that contain the negation of the target literal
-    if -literal in literal2clause:
-        for cid in literal2clause[-literal]:
-            clause = id2clause[cid]
-            clause.remove(-literal)  # remove -literal from clause
-            if len(clause) == 0: # unsat condition
-                assert cid in unit_clauses
-                return True
-            if len(clause) == 1: # update unit clauses
-                unit_clauses.add(cid)
-
-        debug_print(f"Removing {-literal} from literal2clause", level)
-        
-        # nuke -literal entry from literal2clause
-        del literal2clause[-literal]
-
-    return False
-
-
-# returns first pure literal it finds... same behavior as before, but faster, since we don't need to count them each time
-def has_pure_literal(sat_instance: SATInstance2) -> int:
-    literal2clause = sat_instance.literal2clause
-    for l in literal2clause:
-        if len(literal2clause[l]) == 0:
-            continue
-        if -l not in literal2clause or len(literal2clause[-l]) == 0:
-            return l
-    return 0
-
-# literal elimination
-def literal_eliminate(literal: int, sat_instance: SATInstance2, level: int):
-    literal2clause, id2clause = sat_instance.literal2clause, sat_instance.id2clause
-    for cid in literal2clause[literal]:
-        for l in id2clause[cid]: # udpate literal2clause
-            if l != literal:
-                literal2clause[l].remove(cid)
-                
-        debug_print(f"Removing {cid} from id2clause", level)
-        del id2clause[cid]  # delete all clauses that contain the target literal
-        
-    del literal2clause[literal]  # nuke target literal entry from literal2clause
-
-
-# returns the literal used for dlcs
-def dlcs(sat_instance: SATInstance2) -> int:
-    literal2clause = sat_instance.literal2clause
-    count = {}
-    assert 0 not in literal2clause
-    for l in literal2clause:
-        # pos_count = len(literal2clause[l])
-        # neg_count = len(literal2clause[-l]) if -l in literal2clause else 0
-        count[l] = len(literal2clause[l])
-
-    sorted_count = sorted(count.items(), key=lambda x: x[1], reverse=True)
-
-    literal = sorted_count[random.randrange(0, 3)][0]
-    pos_count = len(literal2clause[literal])
-    neg_count = len(literal2clause[-literal]) if -literal in literal2clause else 0
-    return literal if pos_count > neg_count else -literal
-
-
-def debug_print(msg: str, level: int = 0) -> None:
-    if DEBUG:
-        space = level * "--"
-        space += " " if level != 0 else ""
-        print(f"{space}{msg}")
-
 
 """ NOTES """
 

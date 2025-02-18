@@ -8,6 +8,7 @@ from .clock import Clock
 from .dpll1.dpll_solver import dpll_solve
 from .dpll2.dpll_solver2 import dpll_solve2
 from .dpll3.dpll_solver3 import dpll_solve3
+from pprint import pprint
 
 
 def main():
@@ -25,7 +26,6 @@ def main():
 
     try:
         instance = DimacsParser.parse_cnf_file(input_file, version=2)
-        # print(instance) 
         
         watch.stop()
         print(
@@ -55,11 +55,15 @@ def main():
             assignment_list.append(str(v))
             assignment_list.append(str(a))
         res["Solution"] = " ".join(assignment_list)
-    print(json.dumps(res))
+        
+    print("Result:", "SAT" if sat else "UNSAT")
+    if sat and not instance.check(): # type: ignore
+        print("Incorrect assignment")
 
-    # print("Result:", "SAT" if sat else "UNSAT")
-    # if sat and not instance.check(): # type: ignore
-    #     print("Incorrect assignment")
+    pprint(instance.function_stats)
+    print("Total time spent in watched functions:", sum([x.time for x in instance.function_stats.values()]))
+    print(json.dumps(res))
+    
 
 
 if __name__ == "__main__":
