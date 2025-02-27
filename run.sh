@@ -13,4 +13,9 @@ fi
 input=$1
 
 # Update this file with instructions on how to run your code given an input
-python -m src.solver.sat.solve $input
+
+
+# python -m src.solver.sat.solve $input
+
+cd src/rust/dpll
+cargo run --release -- $1
