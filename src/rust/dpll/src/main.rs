@@ -6,6 +6,7 @@ use clock::Clock;
 use sat_instance::SatInstance;
 use std::env;
 use std::path::Path;
+use tokio::time::{timeout, Duration};
 
 use crate::dimacs_parser::DimacsParser;
 

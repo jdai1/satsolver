@@ -306,7 +306,7 @@ impl SatInstance {
             return true;
         }
         
-        let p_lit = self.dlcs();
+        let p_lit = self.dlis();
         let (old_assignments, old_lit2clause, old_unit_clauses, old_active_clauses, old_clauses) = self.copy_ds();
 
         self.assign(p_lit);

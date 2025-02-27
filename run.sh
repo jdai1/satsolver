@@ -17,5 +17,13 @@ input=$1
 
 # python -m src.solver.sat.solve $input
 
-cd src/rust/dpll
-cargo run --release -- $1
+
+for i in {1..15}
+do
+  echo "Run $i of 15"
+  cd src/rust/dpll
+  timeout 30s cargo run --release -- $1
+  cd ../../..
+done
+
+
