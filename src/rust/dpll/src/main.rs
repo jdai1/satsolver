@@ -45,7 +45,7 @@ fn main() {
             assignment_str.push_str(&format!(
                 "{} {} ",
                 var,
-                if *value { "True" } else { "False" }
+                if *value { "true" } else { "false" }
             ));
         }
         if assignment_str.ends_with(' ') {

@@ -302,8 +302,13 @@ impl SatInstance {
         if self.active.is_empty() {
             return true;
         }
+        let p_lit;
+        if rand::random_bool(0.5) {
+            p_lit = self.dlcs();
+        } else {
+            p_lit = self.dlis();
+        }
         
-        let p_lit = self.dlis();
         let (old_assignments, old_lit2clause, old_active_clauses, old_clauses) = self.copy_ds();
 
         self.assign(p_lit);
