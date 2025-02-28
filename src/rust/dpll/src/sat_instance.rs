@@ -273,7 +273,7 @@ impl SatInstance {
         top_lits[selected_index].0
     }
 
-    pub fn copy_ds(&mut self) -> (FxHashMap<i32, bool>, FxHashMap<i32, FxHashSet<usize>>, Vec<i32>, FxHashSet<usize>, Vec<Clause>) {
+    pub fn copy_ds(&mut self) -> (FxHashMap<i32, bool>, FxHashMap<i32, FxHashSet<usize>>, FxHashSet<usize>, Vec<Clause>) {
         let mut new_assignments= FxHashMap::with_capacity_and_hasher(self.assignments.capacity(), Default::default());
         new_assignments.extend(self.assignments.iter().map(|(k, v)| (k.clone(), v.clone())));
         let old_assignments = mem::replace(&mut self.assignments, new_assignments);
@@ -281,10 +281,6 @@ impl SatInstance {
         let mut new_lit2clause = FxHashMap::with_capacity_and_hasher(self.lit2clause.capacity(), Default::default());
         new_lit2clause.extend(self.lit2clause.iter().map(|(k, v)| (k.clone(), v.clone())));
         let old_lit2clause = mem::replace(&mut self.lit2clause, new_lit2clause);
-
-        let mut new_unit_clauses = Vec::with_capacity(self.unit_clauses.capacity());
-        new_unit_clauses.extend(self.unit_clauses.iter().cloned());
-        let old_unit_clauses = mem::replace(&mut self.unit_clauses, new_unit_clauses);
 
         let mut new_active_clauses = FxHashSet::with_capacity_and_hasher(self.active.capacity(), Default::default());
         new_active_clauses.extend(self.active.iter().cloned());
@@ -294,7 +290,7 @@ impl SatInstance {
         new_clauses.extend(self.clauses.iter().cloned());
         let old_clauses = mem::replace(&mut self.clauses, new_clauses);
 
-        return (old_assignments, old_lit2clause, old_unit_clauses, old_active_clauses, old_clauses);
+        return (old_assignments, old_lit2clause, old_active_clauses, old_clauses);
     }
 
     pub fn solve(&mut self) -> bool {
@@ -308,7 +304,7 @@ impl SatInstance {
         }
         
         let p_lit = self.dlis();
-        let (old_assignments, old_lit2clause, old_unit_clauses, old_active_clauses, old_clauses) = self.copy_ds();
+        let (old_assignments, old_lit2clause, old_active_clauses, old_clauses) = self.copy_ds();
 
         self.assign(p_lit);
         self.level += 1;
@@ -321,9 +317,9 @@ impl SatInstance {
 
         self.assignments = old_assignments;
         self.lit2clause = old_lit2clause;
-        self.unit_clauses = old_unit_clauses;
         self.active = old_active_clauses;
         self.clauses = old_clauses;
+        self.unit_clauses.clear();
 
         // println!("{} Branching on {}", "--".repeat(self.level), -p_lit);
 
