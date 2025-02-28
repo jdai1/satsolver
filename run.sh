@@ -19,6 +19,6 @@ input=$1
 
 
 cd src/rust/dpll
-timeout 30s cargo run --release -- $1
+cargo run --release -- $1
 
 
