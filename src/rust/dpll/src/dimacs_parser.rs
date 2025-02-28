@@ -1,6 +1,7 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use crate::sat_instance::SatInstance;
+use std::collections::HashSet;
 
 pub struct DimacsParser {}
 
@@ -36,12 +37,13 @@ impl DimacsParser {
             return Err(format!("Error: DIMACS file format is not cnf"))
         }
 
-        let num_vars = problem_line[2].parse::<u32>().unwrap();
-        let num_clauses = problem_line[3].parse::<u32>().unwrap();
-        let mut sat_instance: SatInstance = SatInstance::new(num_vars, num_clauses);
-
-        let mut clause: Vec<i32> = Vec::new();
+        let num_vars = problem_line[2].parse::<i32>().unwrap();
+        let num_clauses = problem_line[3].parse::<i32>().unwrap();
+        
+        let mut vars: Vec<i32> = Vec::new();
+        let mut clauses: Vec<Vec<i32>> = Vec::new();
         for line in lines.iter().skip(start_index) {
+            let mut clause: Vec<i32> = Vec::new();
             let tokens: Vec<&str> = line.trim().split_whitespace().collect();
             if tokens.is_empty() || tokens[0] == "c" {
                 continue;
@@ -52,12 +54,20 @@ impl DimacsParser {
 
             for &token in tokens.iter().take(tokens.len() - 1) {
                 let lit = token.parse::<i32>().unwrap();
-                sat_instance.add_var(lit);
+                vars.push(lit.abs());
                 clause.push(lit);
             }
+            clauses.push(clause);
+        }
 
-            sat_instance.add_clause(clause.clone());
-            clause.clear();
+        let mut sat_instance: SatInstance = SatInstance::new(num_vars, num_clauses);
+        vars.sort();
+        for v in vars {
+            sat_instance.add_var(v);
+        }
+
+        for clause in clauses {
+            sat_instance.add_clause(clause);
         }
 
         Ok(sat_instance)

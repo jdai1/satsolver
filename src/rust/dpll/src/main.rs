@@ -36,21 +36,13 @@ fn main() {
         watch.get_time()
     );
 
+    // println!("{}", sat_instance.to_string());
+
     watch.start();
     let sat = sat_instance.solve();
     watch.stop();
     if sat {
-        let mut assignment_str = String::new();
-        for (var, value) in &sat_instance.assignments {
-            assignment_str.push_str(&format!(
-                "{} {} ",
-                var,
-                if *value { "True" } else { "False" }
-            ));
-        }
-        if assignment_str.ends_with(' ') {
-            assignment_str = assignment_str.trim_end().to_string();
-        }
+        let assignment_str = sat_instance.get_assignment_string();
         println!("Correct: {:?}", sat_instance.check());
         println!(
             "{{\"Instance\": \"{}\", \"Time\": \"{:.2}\", \"Result\": \"{}\", \"Solution\": \"{}\"}}",
