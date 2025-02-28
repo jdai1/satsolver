@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::mem;
 use rand::Rng;
+use fxhash::{FxHashMap, FxHashSet};
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Clause {
@@ -24,12 +25,12 @@ pub struct SatInstance {
     level: usize,
     num_vars: u32,
     num_clauses: u32,
-    vars: HashSet<i32>,
+    vars: FxHashSet<i32>,
     clauses: Vec<Clause>,
-    active: HashSet<usize>, 
+    active: FxHashSet<usize>, 
     unit_clauses: Vec<i32>,
-    lit2clause: HashMap<i32, HashSet<usize>>,
-    pub assignments: HashMap<i32, bool>,
+    lit2clause: FxHashMap<i32, FxHashSet<usize>>,
+    pub assignments: FxHashMap<i32, bool>,
 }
 
 
@@ -39,12 +40,12 @@ impl SatInstance {
             level: 0,
             num_vars: num_vars,
             num_clauses: num_clauses,
-            vars: HashSet::new(),
+            vars: FxHashSet::default(),
             clauses: Vec::new(),
-            active: HashSet::new(),
+            active: FxHashSet::default(),
             unit_clauses: Vec::new(),
-            lit2clause: HashMap::new(),
-            assignments: HashMap::new(),
+            lit2clause: FxHashMap::default(),
+            assignments: FxHashMap::default(),
         }
     }
 
@@ -67,7 +68,7 @@ impl SatInstance {
         let cid = self.clauses.len();
         for l in clause.lits.iter() {
             self.lit2clause.entry(*l)
-                .or_insert_with(HashSet::new)
+                .or_insert_with(FxHashSet::default)
                 .insert(cid);
         }
         self.active.insert(cid);
@@ -272,12 +273,12 @@ impl SatInstance {
         top_lits[selected_index].0
     }
 
-    pub fn copy_ds(&mut self) -> (HashMap<i32, bool>, HashMap<i32, HashSet<usize>>, Vec<i32>, HashSet<usize>, Vec<Clause>) {
-        let mut new_assignments = HashMap::with_capacity(self.assignments.capacity());
+    pub fn copy_ds(&mut self) -> (FxHashMap<i32, bool>, FxHashMap<i32, FxHashSet<usize>>, Vec<i32>, FxHashSet<usize>, Vec<Clause>) {
+        let mut new_assignments= FxHashMap::with_capacity_and_hasher(self.assignments.capacity(), Default::default());
         new_assignments.extend(self.assignments.iter().map(|(k, v)| (k.clone(), v.clone())));
         let old_assignments = mem::replace(&mut self.assignments, new_assignments);
 
-        let mut new_lit2clause = HashMap::with_capacity(self.lit2clause.capacity());
+        let mut new_lit2clause = FxHashMap::with_capacity_and_hasher(self.lit2clause.capacity(), Default::default());
         new_lit2clause.extend(self.lit2clause.iter().map(|(k, v)| (k.clone(), v.clone())));
         let old_lit2clause = mem::replace(&mut self.lit2clause, new_lit2clause);
 
@@ -285,7 +286,7 @@ impl SatInstance {
         new_unit_clauses.extend(self.unit_clauses.iter().cloned());
         let old_unit_clauses = mem::replace(&mut self.unit_clauses, new_unit_clauses);
 
-        let mut new_active_clauses = HashSet::with_capacity(self.active.capacity());
+        let mut new_active_clauses = FxHashSet::with_capacity_and_hasher(self.active.capacity(), Default::default());
         new_active_clauses.extend(self.active.iter().cloned());
         let old_active_clauses = mem::replace(&mut self.active, new_active_clauses);
 
