@@ -131,6 +131,16 @@ fn run_parallel_assignments(args: Vec<String>) {
         let sender = sender.clone();
         let core_id = cores[i % core_count]; // Distribute threads across cores
         let args = args.clone();
+        let heuristics = vec![
+            SearchHeuristic::DLIS,
+            SearchHeuristic::DLCS,
+            SearchHeuristic::RandDLIS,
+            SearchHeuristic::RandDLCS,
+            SearchHeuristic::Hybrid,
+            SearchHeuristic::DLIS,
+            SearchHeuristic::DLCS,
+            SearchHeuristic::RandDLIS,
+        ];
         thread::spawn(move || {
             core_affinity::set_for_current(core_id);
 
@@ -140,7 +150,7 @@ fn run_parallel_assignments(args: Vec<String>) {
             let mut sat_instance: SatInstance = DimacsParser::parse_cnf_file(&input_file).unwrap();
             watch.stop();
 
-            sat_instance.set_heuristic(SearchHeuristic::RandDLIS);
+            sat_instance.set_heuristic(heuristics[i]);
 
             sat_instance.assign(if truth_assignments[i][0] {first_lit} else {-first_lit});
             sat_instance.assign(if truth_assignments[i][1] {second_lit} else {-second_lit});
