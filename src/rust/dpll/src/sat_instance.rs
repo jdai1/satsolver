@@ -18,10 +18,19 @@ impl Clause {
     }
 }
 
-// DEBUGGING UTILS
+#[derive(Debug, Copy, Clone)]
+pub enum SearchHeuristic {
+    DLIS,
+    DLCS,
+    RandDLIS,
+    RandDLCS,
+    Hybrid,
+}
+
 
 #[derive(Debug)]
 pub struct SatInstance {
+    search_heuristic: SearchHeuristic,
     level: usize,
     num_vars: u32,
     num_clauses: u32,
@@ -37,6 +46,7 @@ pub struct SatInstance {
 impl SatInstance {
     pub fn new(num_vars: u32, num_clauses: u32) -> Self {
         SatInstance {
+            search_heuristic: SearchHeuristic::DLIS,
             level: 0,
             num_vars: num_vars,
             num_clauses: num_clauses,
@@ -75,16 +85,28 @@ impl SatInstance {
         self.clauses.push(clause);
     }
 
+    pub fn set_heuristic(&mut self, heuristic: SearchHeuristic) {
+        self.search_heuristic = heuristic;
+    }
+
     pub fn assign(&mut self, lit: i32) {
         self.unit_clauses.push(lit);
         self.assignments.insert(lit.abs(), lit > 0);
     }
 
-    pub fn unit_propagate(&mut self) -> bool {
+    fn value(&mut self, lit: i32) -> bool {
+        if let Some(&value) = self.assignments.get(&lit.abs()) {
+            if lit > 0 {
+                return value;
+            }
+            return !value;
+        }
+        false
+    }
+
+    fn unit_propagate(&mut self) -> bool {
         while !self.unit_clauses.is_empty() {
             let p_lit = self.unit_clauses.pop().unwrap();
-            // println!("{} Unit propagating {}", "--".repeat(self.level), p_lit);
-
             if let Some(clauses_ids) = self.lit2clause.get(&p_lit).cloned() {
                 for cid in clauses_ids.iter() {
                     for l in self.clauses[*cid].lits.iter() {
@@ -94,7 +116,6 @@ impl SatInstance {
                             }
                         }
                     }
-                    // println!("{} Removing CID b/c clause contains unit clause: {}", "--".repeat(self.level), cid);
                     assert!(self.active.remove(cid));
                     
                 }
@@ -107,13 +128,11 @@ impl SatInstance {
                 for cid in clauses_ids.iter() {// let old_active_clauses = self.active;
                     let new_lits: Vec<i32> = self.clauses[*cid].lits.iter().filter(|&&l| l != not_p_lit).copied().collect();
                     if new_lits.is_empty() {
-                        // println!("{} Conflict detected; empty clause", "--".repeat(self.level));
                         return true;
                     } else if new_lits.len() == 1 {
                         let new_p_lit = new_lits[0];
                         if let Some(&value) = self.assignments.get(&new_p_lit.abs()) {
                             if value != (new_p_lit > 0) {
-                                // println!("{} Conflict detected: {}", "--".repeat(self.level), new_p_lit);
                                 return true;
                             }
                         }
@@ -130,7 +149,7 @@ impl SatInstance {
         false
     }
 
-    pub fn ple(&mut self) {
+    fn ple(&mut self) {
         loop {
             let mut pure_literals: Vec<i32> = Vec::new();
             for l in self.lit2clause.keys() {
@@ -143,7 +162,6 @@ impl SatInstance {
             }
 
             for pure_lit in pure_literals.iter() {
-                // println!("{} Calling PLE on {}", "--".repeat(self.level), pure_lit);
                 self.assignments.insert(pure_lit.abs(), *pure_lit > 0);
                 if let Some(clause_ids) = self.lit2clause.get(pure_lit).cloned() {
                     for cid in clause_ids.iter() {
@@ -152,7 +170,6 @@ impl SatInstance {
                                 set.remove(cid);
                             }
                         }
-                        // println!("{} Removing CID: {}", "--".repeat(self.level), cid);
                         self.active.remove(cid);
                     }
                 }
@@ -161,7 +178,9 @@ impl SatInstance {
         }
     }
 
-    pub fn dlis(&mut self) -> i32 {
+    // Search heuristics
+
+    fn dlis(&mut self) -> i32 {
         let mut max_count = 0;
         let mut max_lit = 0;
         for l in self.lit2clause.keys() {
@@ -171,12 +190,11 @@ impl SatInstance {
                 max_lit = *l;
             }
         }
-        // println!("{} DLIS Output: {}", "--".repeat(self.level), max_lit);
         max_lit
     }
 
-    pub fn randomized_dlis(&mut self) -> i32 {
-        let mut rng = rand::thread_rng();
+    fn randomized_dlis(&mut self) -> i32 {
+        let mut rng = rand::rng();
         let mut top_lits = [(0, 0), (0, 0), (0, 0)]; // (lit, count)
         
         for l in self.lit2clause.keys() {
@@ -199,14 +217,12 @@ impl SatInstance {
         }
         assert!(valid_count > 0);
         
-        let selected_index = rng.gen_range(0..valid_count);
-        // println!("{:?}", top_lits);
-        // println!("{} Randomized DLIS Output: {}", "--".repeat(self.level), top_lits[selected_index].0);
+        let selected_index = rng.random_range(0..valid_count);
         top_lits[selected_index].0
     }
 
 
-    pub fn dlcs(&mut self) -> i32 {
+    fn dlcs(&mut self) -> i32 {
         let mut max_count = 0;
         let mut max_lit = 0;
         let mut pos_count = 0;
@@ -227,12 +243,11 @@ impl SatInstance {
                 max_lit = if pos_count > neg_count { *v } else { -(*v) };
             }
         }
-        // println!("{} DLCS Output: {}", "--".repeat(self.level), max_lit);
         max_lit
     }
 
-    pub fn randomized_dlcs(&mut self) -> i32 {
-        let mut rng = rand::thread_rng();
+    fn randomized_dlcs(&mut self) -> i32 {
+        let mut rng = rand::rng();
         let mut top_lits = [(0, 0), (0, 0), (0, 0)]; // (lit, count)
         let mut pos_count = 0;
         let mut neg_count = 0;
@@ -267,13 +282,27 @@ impl SatInstance {
             }
         }
         assert!(valid_count > 0);
-        let selected_index = rng.gen_range(0..valid_count);
-        // println!("{:?}", top_lits);
-        // println!("{} Randomized DLCS Output: {}", "--".repeat(self.level), top_lits[selected_index].0);
+        let selected_index = rng.random_range(0..valid_count);
         top_lits[selected_index].0
     }
 
-    pub fn copy_ds(&mut self) -> (FxHashMap<i32, bool>, FxHashMap<i32, FxHashSet<usize>>, FxHashSet<usize>, Vec<Clause>) {
+    pub fn get_branch_lit(&mut self) -> i32 {
+        match self.search_heuristic {
+            SearchHeuristic::DLCS => self.dlcs(),
+            SearchHeuristic::DLIS => self.dlis(),
+            SearchHeuristic::RandDLCS => self.randomized_dlcs(),
+            SearchHeuristic::RandDLIS => self.randomized_dlis(),
+            SearchHeuristic::Hybrid => {
+                if rand::random_bool(0.5) {
+                    self.dlcs()
+                } else {
+                    self.dlis()
+                }
+            }
+        }
+    }
+
+    fn copy_ds(&mut self) -> (FxHashMap<i32, bool>, FxHashMap<i32, FxHashSet<usize>>, FxHashSet<usize>, Vec<Clause>) {
         let mut new_assignments= FxHashMap::with_capacity_and_hasher(self.assignments.capacity(), Default::default());
         new_assignments.extend(self.assignments.iter().map(|(k, v)| (k.clone(), v.clone())));
         let old_assignments = mem::replace(&mut self.assignments, new_assignments);
@@ -302,12 +331,8 @@ impl SatInstance {
         if self.active.is_empty() {
             return true;
         }
-        let p_lit;
-        if rand::random_bool(0.5) {
-            p_lit = self.dlcs();
-        } else {
-            p_lit = self.dlis();
-        }
+
+        let p_lit = self.get_branch_lit();
         
         let (old_assignments, old_lit2clause, old_active_clauses, old_clauses) = self.copy_ds();
 
@@ -340,16 +365,6 @@ impl SatInstance {
             }
         }
         true
-    }
-
-    pub fn value(&mut self, lit: i32) -> bool {
-        if let Some(&value) = self.assignments.get(&lit.abs()) {
-            if lit > 0 {
-                return value;
-            }
-            return !value;
-        }
-        false
     }
 
     pub fn to_string(&self) -> String {
